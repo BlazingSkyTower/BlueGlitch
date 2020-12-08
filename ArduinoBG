@@ -1,0 +1,117 @@
+#include <Adafruit_NeoPixel.h>
+#ifdef __AVR__
+#include <avr/power.h> // Required for 16 MHz Adafruit Trinket
+#endif
+
+#define LED_PIN    13
+#define LED_COUNT 144
+
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
+
+const int cnt = 72;
+const int steps = 32;
+const int tubes =1;
+const float cap = 255;
+const float bld = .55;
+float atk = 1;
+float dcy = 1;
+float mx = 175;
+float delt = .99;
+float q[steps];
+
+float px[cnt];
+
+int st = 0;
+int trg[tubes];
+int tr[tubes];
+
+void setup () {
+  pinMode(LED_BUILTIN, OUTPUT);
+  Serial.begin(9600);
+  strip.begin();
+  strip.show();
+  strip.setBrightness(50);
+
+
+  float tj = mx;
+  for (int j = steps - 1; j >= 0; j--) {
+    q[j] = tj;
+    tj *= delt;
+  }
+  for (int i = 0; i < cnt; i++) {
+    px[i] = 0;
+  }
+  for (int i = 0; i < tubes; i++) {
+    trg[i] = int(random(0, cnt));
+  }
+}
+
+void loop () {
+  feed();
+  pss();
+  reflux();
+  strip.show();
+}
+
+void feed() {
+  float vr = q[st];
+  for (int i = 0; i < tubes; i++) {
+    px[trg[i]] += vr;
+    if (px[trg[i]] > cap) {
+      px[trg[i]] = cap;
+    }
+  }
+  st += 1;
+  if (st >= 64) {
+    reset();
+    st = 0;
+  }
+}
+
+void reset() {
+  for (int i = 0; i < tubes; i++) {
+    trg[i] = int(random(0, cnt));
+  }
+}
+
+void pss() {
+  for (int i = cnt-1; i >=0 ; i--) {
+    if(px[i] > cap){
+      px[i] = cap;
+    }
+    int r = i - 1;
+    int t = i + 1;
+    float amt = (px[i] * bld) * atk;
+    float ap = amt / 2;
+    if (t >= cnt) {
+      t = 0;
+    }
+    if (r < -1) {
+      r = cnt - 1;
+    }
+
+    float s = 0;
+    if (px[t] + ap <= cap) {
+      px[t] += ap;
+      s -= ap;
+    }
+    if (px[r] + ap <= cap) {
+      px[r] += ap;
+      s -= ap;
+    }
+
+    px[i] += s;
+    px[i] *= dcy;
+    if (px[i] < .001) {
+      px[i] = 0;
+    }
+    
+  }
+}
+
+void reflux() {
+  for (int i = 0; i < cnt ; i ++) {
+    strip.setPixelColor(i, 0, 0, px[i], 0);
+    strip.setPixelColor(143 - i, 0, 0, px[i], 0);
+  }
+}
